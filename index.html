@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<script>
+(function(){
+  var pwd = sessionStorage.getItem('ph_auth');
+  if(pwd !== 'rootvyana@2026'){
+    var input = prompt('Enter password to access this page:');
+    if(input !== 'rootvyana@2026'){
+      document.documentElement.innerHTML = '<div style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#040812;color:#64748b;font-size:16px;">Access denied.</div>';
+      throw new Error('Access denied');
+    }
+    sessionStorage.setItem('ph_auth','rootvyana@2026');
+  }
+})();
+</script>
+<title>PingHold — Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+button { font-family: inherit; cursor: pointer; border: none; }
+
+:root {
+  --bg:      #040812;
+  --indigo:  #6366f1;
+  --cyan:    #06b6d4;
+  --green:   #10b981;
+  --red:     #ef4444;
+  --amber:   #f59e0b;
+  --orange:  #f97316;
+  --purple:  #8b5cf6;
+  --text:    #f0f4ff;
+  --soft:    #64748b;
+  --border:  rgba(255,255,255,0.07);
+  --glass:   rgba(12,20,48,0.55);
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 40px 48px 72px;
+  background-image:
+    radial-gradient(ellipse 70% 50% at 50% -5%, rgba(99,102,241,0.18) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 35% at 80% 70%, rgba(6,182,212,0.07) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 30% at 20% 90%, rgba(139,92,246,0.06) 0%, transparent 50%);
+}
+.page { max-width: 1100px; margin: 0 auto; }
+
+/* ── ANIMATIONS ─────────────────────────────────────────── */
+@keyframes blink    { 50% { opacity: 0; } }
+@keyframes pulse    { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.8);opacity:.4} }
+@keyframes flowmove { to { stroke-dashoffset: -14; } }
+@keyframes glow-in  { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+@keyframes pop      { 0%{transform:scale(.96)}60%{transform:scale(1.04)}100%{transform:scale(1)} }
+@keyframes simpulse { from{box-shadow:0 0 0 rgba(239,68,68,.3)} to{box-shadow:0 0 24px rgba(239,68,68,.65)} }
+@keyframes fadeup   { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+/* ── HEADER ──────────────────────────────────────────────── */
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 44px;
+}
+.logo {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 30px; font-weight: 800; letter-spacing: -1px;
+  color: var(--text);
+}
+.logo em { color: var(--indigo); font-style: normal; }
+.cursor {
+  display: inline-block; width: 2px; height: 26px;
+  background: var(--indigo); margin-left: 2px; vertical-align: middle;
+  animation: blink 1s step-end infinite;
+}
+.logo-sub { font-size: 12px; color: var(--soft); margin-top: 4px; font-weight: 500; }
+
+.header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.pill-badge {
+  font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--indigo); background: rgba(99,102,241,0.1);
+  border: 1px solid rgba(99,102,241,0.25);
+  padding: 5px 12px; border-radius: 20px;
+}
+.header-sub { font-size: 11px; color: var(--soft); }
+
+/* ── FLOW LINES ─────────────────────────────────────────── */
+.fline { display: flex; justify-content: center; margin: 2px 0; }
+
+/* ── OBSERVATORY (hero) ──────────────────────────────────── */
+.obs {
+  background: linear-gradient(145deg, #0a1f55 0%, #0c2060 40%, #091a48 100%);
+  border: 1px solid rgba(99,102,241,0.3);
+  border-radius: 20px;
+  padding: 32px 40px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 80px rgba(99,102,241,0.12), inset 0 1px 0 rgba(255,255,255,0.06);
+  transition: box-shadow .3s;
+}
+.obs::before {
+  content: '';
+  position: absolute; top: -40%; left: 50%; transform: translateX(-50%);
+  width: 600px; height: 300px;
+  background: radial-gradient(ellipse, rgba(99,102,241,0.1) 0%, transparent 65%);
+  pointer-events: none;
+}
+/* subtle scan line at top */
+.obs::after {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(99,102,241,0.6), transparent);
+}
+.obs:hover { box-shadow: 0 0 120px rgba(99,102,241,0.2), inset 0 1px 0 rgba(255,255,255,0.08); }
+
+.obs-live {
+  display: inline-flex; align-items: center; gap: 6px; margin-bottom: 12px;
+}
+.live-dot { width: 7px; height: 7px; background: var(--green); border-radius: 50%; animation: pulse 1.8s ease-in-out infinite; }
+.live-txt { font-size: 10px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--green); }
+
+.obs-title {
+  font-size: 26px; font-weight: 800; color: #dce8ff; letter-spacing: -.5px; margin-bottom: 8px;
+}
+.obs-sub { font-size: 13px; color: rgba(220,232,255,0.5); font-weight: 500; }
+
+/* ── PLATFORM CONTAINER ──────────────────────────────────── */
+.platform {
+  background: rgba(10,18,40,0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(99,102,241,0.15);
+  border-radius: 20px;
+  padding: 22px;
+  position: relative;
+}
+.plat-label {
+  position: absolute; top: -11px; left: 22px;
+  background: #040812; /* match page bg */
+  font-size: 10px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase;
+  color: rgba(99,102,241,0.6); padding: 0 10px;
+}
+
+/* layers: 4 horizontal */
+.layers { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 12px; }
+
+.layer {
+  background: rgba(15,24,54,0.8);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 14px;
+  position: relative; overflow: hidden;
+}
+.layer::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+}
+.layer.l-mon::before { background: linear-gradient(90deg, var(--cyan), var(--indigo)); }
+.layer.l-etl::before { background: linear-gradient(90deg, var(--purple), var(--indigo)); }
+.layer.l-orc::before { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+.layer.l-ai::before  { background: linear-gradient(90deg, var(--amber), var(--orange)); }
+
+.layer-hd { display: flex; align-items: flex-start; gap: 10px; }
+.layer-ico { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+.layer-nm {
+  font-size: 13px; font-weight: 700; color: var(--text);
+  margin-bottom: 2px; line-height: 1.25;
+}
+.layer-ct { font-size: 11px; color: var(--soft); font-weight: 500; }
+.layer-led {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 9px; font-weight: 700; letter-spacing: 1px;
+  color: var(--green); margin-left: auto; flex-shrink: 0;
+}
+.led { width: 5px; height: 5px; background: var(--green); border-radius: 50%; animation: pulse 2.2s ease-in-out infinite; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+
+.chip {
+  font-size: 9px; font-weight: 600; border-radius: 4px;
+  padding: 3px 7px; border: 1px solid;
+}
+.chip-b { color: rgba(165,180,252,.9); background: rgba(99,102,241,.1); border-color: rgba(99,102,241,.25); }
+.chip-g { color: rgba(110,231,183,.9); background: rgba(16,185,129,.08); border-color: rgba(16,185,129,.22); }
+.chip-c { color: rgba(103,232,249,.9); background: rgba(6,182,212,.08); border-color: rgba(6,182,212,.22); }
+.chip-a { color: rgba(252,211,77,.9);  background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.22); }
+.chip-p { color: rgba(196,181,253,.9); background: rgba(139,92,246,.08); border-color: rgba(139,92,246,.22); }
+
+/* API Module */
+.api-mod {
+  background: linear-gradient(90deg, rgba(6,40,20,0.9), rgba(10,55,28,0.9), rgba(6,40,20,0.9));
+  border: 1px solid rgba(16,185,129,0.3);
+  border-radius: 12px;
+  padding: 14px 22px;
+  display: flex; align-items: center; gap: 14px;
+  transition: border-color .25s, box-shadow .25s;
+  box-shadow: 0 0 24px rgba(16,185,129,.06);
+}
+.api-mod:hover { border-color: rgba(16,185,129,.55); box-shadow: 0 0 40px rgba(16,185,129,.15); }
+.api-ico  { font-size: 22px; flex-shrink: 0; }
+.api-body { flex: 1; }
+.api-title { font-size: 14px; font-weight: 700; color: #6ee7b7; margin-bottom: 2px; }
+.api-desc  { font-size: 11px; color: rgba(110,231,183,.5); font-weight: 500; }
+.api-tag {
+  font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--green); background: rgba(16,185,129,.1);
+  border: 1px solid rgba(16,185,129,.25);
+  padding: 4px 10px; border-radius: 20px; flex-shrink: 0;
+}
+
+/* ── DISTRIBUTION LABEL ──────────────────────────────────── */
+.dist-label {
+  text-align: center;
+  font-size: 10px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--soft); margin: 4px 0 16px;
+}
+
+/* ── MARKETPLACE GRID ────────────────────────────────────── */
+.mp { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+
+/* ── FLOW DIAGRAM (marketplace) ─────────────────────────── */
+.flow-diag { display: flex; flex-direction: column; gap: 16px; }
+.flow-row { display: flex; align-items: center; gap: 0; min-height: 80px; }
+.flow-cyl {
+  width: 120px; flex-shrink: 0; text-align: center;
+  padding: 12px 10px 10px;
+  background: rgba(10,18,42,.65); border: 1px solid rgba(255,255,255,.07);
+  border-radius: 14px;
+}
+.flow-cyl-lbl { font-size: 12px; font-weight: 800; margin-top: 6px; letter-spacing: .4px; }
+.flow-arr {
+  flex-shrink: 0; display: flex; align-items: center; width: 48px;
+}
+.flow-mkt {
+  flex-shrink: 0; min-width: 185px;
+  border: 1.5px solid; border-radius: 12px;
+  padding: 14px 18px; text-align: center;
+  backdrop-filter: blur(10px);
+}
+.flow-mkt-eye { font-size: 9px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px; opacity: .65; }
+.flow-mkt-nm  { font-size: 14px; font-weight: 800; }
+.flow-org { flex: 1; }
+.flow-org-box {
+  border: 1.5px solid; border-radius: 12px;
+  padding: 14px 18px;
+  background: rgba(10,18,42,.65); backdrop-filter: blur(10px);
+}
+.flow-org-nm  { font-size: 13px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+.flow-org-sub { font-size: 10px; color: var(--soft); font-weight: 500; line-height: 1.6; }
+.flow-saas-types { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+.flow-saas-box {
+  border: 1.5px solid rgba(139,92,246,.3); border-radius: 12px;
+  padding: 12px 16px; background: rgba(139,92,246,.06);
+  display: flex; align-items: flex-start; gap: 10px;
+}
+.flow-saas-ico { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+.flow-saas-nm  { font-size: 12px; font-weight: 800; color: var(--text); margin-bottom: 2px; }
+.flow-saas-sub { font-size: 10px; color: var(--soft); font-weight: 500; }
+
+.mc {
+  border-radius: 16px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,.07);
+  cursor: pointer; transition: transform .22s, box-shadow .22s;
+}
+.mc:hover { transform: translateY(-5px); }
+
+/* marketplace gradient tops */
+.mc-top {
+  padding: 18px 14px 14px;
+  text-align: center; position: relative;
+}
+.mc-top-ico  { font-size: 26px; margin-bottom: 8px; }
+.mc-top-name { font-size: 14px; font-weight: 800; color: #fff; margin-bottom: 3px; }
+.mc-top-sub  { font-size: 10px; color: rgba(255,255,255,0.6); font-weight: 500; }
+
+.mc-saas .mc-top { background: linear-gradient(145deg, #1e1060, #2e1890); }
+.mc-aws  .mc-top { background: linear-gradient(145deg, #4d2200, #7a3800); }
+.mc-snow .mc-top { background: linear-gradient(145deg, #013550, #01527a); }
+.mc-db   .mc-top { background: linear-gradient(145deg, #4a0808, #740d0d); }
+
+.mc:hover.mc-saas { box-shadow: 0 16px 48px rgba(99,102,241,.3); }
+.mc:hover.mc-aws  { box-shadow: 0 16px 48px rgba(245,158,11,.25); }
+.mc:hover.mc-snow { box-shadow: 0 16px 48px rgba(6,182,212,.25); }
+.mc:hover.mc-db   { box-shadow: 0 16px 48px rgba(239,68,68,.25); }
+
+/* customer entries below the gradient top */
+.mc-body {
+  background: rgba(10,18,42,.9);
+  padding: 10px 10px 12px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+
+.cust {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06);
+  border-radius: 8px; padding: 9px 10px;
+  transition: background .18s;
+}
+.cust:hover { background: rgba(255,255,255,.06); }
+.cust-ico { font-size: 14px; flex-shrink: 0; }
+.cust-info { flex: 1; min-width: 0; }
+.cust-name { font-size: 11px; font-weight: 700; color: var(--text); margin-bottom: 1px; }
+.cust-sub  { font-size: 9px; color: var(--soft); font-weight: 500; }
+.plan-tag {
+  font-size: 8px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 20px; border: 1px solid; flex-shrink: 0;
+}
+.plan-pro    { color: rgba(196,181,253,.9); border-color: rgba(139,92,246,.4); background: rgba(139,92,246,.12); }
+.plan-ent    { color: rgba(252,211,77,.9);  border-color: rgba(245,158,11,.4);  background: rgba(245,158,11,.12); }
+.plan-aws    { color: rgba(253,186,116,.9); border-color: rgba(249,115,22,.4);  background: rgba(249,115,22,.12); }
+.plan-snow   { color: rgba(103,232,249,.9); border-color: rgba(6,182,212,.4);   background: rgba(6,182,212,.12); }
+.plan-db     { color: rgba(252,165,165,.9); border-color: rgba(239,68,68,.4);   background: rgba(239,68,68,.12); }
+
+/* ── DIVIDER ─────────────────────────────────────────────── */
+.hr { border: none; border-top: 1px solid var(--border); margin: 36px 0 28px; }
+
+/* ── WOW STACKED ─────────────────────────────────────────── */
+.wow-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.wow-title {
+  font-size: 16px; font-weight: 800; color: var(--text);
+}
+.wow-title span { color: var(--orange); }
+.wow-sub { font-size: 11px; color: var(--soft); font-weight: 500; margin-top: 2px; }
+
+.sim-btn {
+  font-size: 12px; font-weight: 700; letter-spacing: .5px;
+  background: transparent; border: 1.5px solid var(--red);
+  color: #fca5a5; border-radius: 8px; padding: 9px 20px;
+  transition: all .2s;
+}
+.sim-btn:hover { background: rgba(239,68,68,.1); transform: scale(1.02); }
+.sim-btn.running { background: rgba(239,68,68,.12); color: #fff; animation: simpulse .85s ease-in-out infinite alternate; }
+
+.wow-card {
+  background: rgba(10,18,40,.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(249,115,22,.18);
+  border-radius: 18px;
+  padding: 18px 16px 16px;
+}
+.wow-bar-t { height: 3px; background: rgba(255,255,255,.05); border-radius: 2px; margin-bottom: 16px; }
+.wow-bar-f { height: 100%; width: 0%; border-radius: 2px; transition: width .5s ease;
+  background: linear-gradient(90deg, var(--orange), var(--amber)); }
+
+.wow-steps {
+  display: grid;
+  grid-template-columns: 1fr 30px 1fr 30px 1fr 30px 1fr 30px 1fr;
+  align-items: center;
+}
+.ws {
+  border-radius: 14px; padding: 22px 10px 18px; text-align: center;
+  cursor: pointer; border: 1.5px solid; transition: all .3s;
+  position: relative; overflow: hidden;
+}
+/* colored accent bar at top of each step */
+.ws::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+}
+.ws1::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.ws2::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+.ws3::before { background: linear-gradient(90deg, #10b981, #34d399); }
+.ws4::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+.ws5::before { background: linear-gradient(90deg, #f97316, #fb923c); }
+
+.ws:hover { transform: translateY(-4px); filter: brightness(1.18); }
+.ws.lit   { transform: translateY(-7px); filter: brightness(1.35); }
+
+.ws1 { background: linear-gradient(160deg, rgba(245,158,11,.22), rgba(245,158,11,.07)); border-color: rgba(245,158,11,.45); }
+.ws1 .ws-n { color: #fbbf24; }
+.ws1.lit { border-color: #f59e0b; background: linear-gradient(160deg, rgba(245,158,11,.38), rgba(245,158,11,.14)); box-shadow: 0 12px 36px rgba(245,158,11,.3); }
+
+.ws2 { background: linear-gradient(160deg, rgba(59,130,246,.22), rgba(59,130,246,.07)); border-color: rgba(59,130,246,.45); }
+.ws2 .ws-n { color: #60a5fa; }
+.ws2.lit { border-color: #3b82f6; background: linear-gradient(160deg, rgba(59,130,246,.38), rgba(59,130,246,.14)); box-shadow: 0 12px 36px rgba(59,130,246,.3); }
+
+.ws3 { background: linear-gradient(160deg, rgba(16,185,129,.22), rgba(16,185,129,.07)); border-color: rgba(16,185,129,.45); }
+.ws3 .ws-n { color: #34d399; }
+.ws3.lit { border-color: #10b981; background: linear-gradient(160deg, rgba(16,185,129,.38), rgba(16,185,129,.14)); box-shadow: 0 12px 36px rgba(16,185,129,.3); }
+
+.ws4 { background: linear-gradient(160deg, rgba(139,92,246,.22), rgba(139,92,246,.07)); border-color: rgba(139,92,246,.45); }
+.ws4 .ws-n { color: #a78bfa; }
+.ws4.lit { border-color: #8b5cf6; background: linear-gradient(160deg, rgba(139,92,246,.38), rgba(139,92,246,.14)); box-shadow: 0 12px 36px rgba(139,92,246,.3); }
+
+.ws5 { background: linear-gradient(160deg, rgba(249,115,22,.22), rgba(249,115,22,.07)); border-color: rgba(249,115,22,.45); }
+.ws5 .ws-n { color: #fb923c; }
+.ws5.lit { border-color: #f97316; background: linear-gradient(160deg, rgba(249,115,22,.38), rgba(249,115,22,.14)); box-shadow: 0 12px 36px rgba(249,115,22,.3); }
+
+.ws-n  { font-size: 32px; font-weight: 900; line-height: 1; margin-bottom: 8px; }
+.ws-nm { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.ws-d  { font-size: 10px; color: #94a3b8; line-height: 1.4; }
+.wa    { text-align: center; font-size: 20px; color: rgba(249,115,22,.65); font-weight: 700; }
+
+/* ── ISSUE BRIDGE ────────────────────────────────────────── */
+.issue-bridge {
+  display: flex; align-items: center; gap: 16px;
+  background: rgba(239,68,68,.06);
+  border: 1px solid rgba(239,68,68,.18);
+  border-radius: 12px; padding: 14px 22px; margin: 24px 0;
+}
+.bridge-pulse {
+  width: 10px; height: 10px; background: var(--red); border-radius: 50%;
+  flex-shrink: 0; animation: pulse 1.4s ease-in-out infinite;
+}
+.bridge-left  { display: flex; align-items: center; gap: 11px; flex-shrink: 0; }
+.bridge-l-ttl { font-size: 13px; font-weight: 700; color: #fca5a5; }
+.bridge-l-sub { font-size: 10px; color: var(--soft); font-weight: 500; margin-top: 2px; }
+.bridge-arrow { flex: 1; height: 20px; }
+.bridge-right { flex-shrink: 0; text-align: right; }
+.bridge-r-ttl { font-size: 13px; font-weight: 700; color: var(--orange); }
+.bridge-r-sub { font-size: 10px; color: var(--soft); font-weight: 500; margin-top: 2px; }
+
+/* ── AGENT DISPATCH ──────────────────────────────────────── */
+.dispatch-log {
+  display: none; background: rgba(239,68,68,.05);
+  border: 1px solid rgba(239,68,68,.18); border-radius: 10px;
+  padding: 10px 14px; margin-bottom: 12px;
+}
+.dispatch-log.show { display: block; animation: fadeup .25s ease; }
+.dispatch-log-hd { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(239,68,68,.75); margin-bottom: 6px; font-family: 'JetBrains Mono', monospace; }
+.log-line { font-size: 10px; color: #94a3b8; font-family: 'JetBrains Mono', monospace; line-height: 1.9; }
+.log-line span { color: #c4b5fd; font-weight: 700; }
+.ws-agent { display: none; margin-top: 7px; animation: fadeup .3s ease; }
+.ws-agent.show { display: block; }
+.ws-agent-name { font-size: 9px; font-weight: 700; letter-spacing: .3px; }
+.ws-agent-status { font-size: 8px; font-weight: 500; color: #94a3b8; margin-top: 1px; }
+
+/* ── TICKET ──────────────────────────────────────────────── */
+.ticket-row { display: flex; justify-content: center; margin-top: 4px; }
+.ticket {
+  background: rgba(12,20,48,.7); backdrop-filter: blur(12px);
+  border: 1px solid var(--border); border-radius: 14px;
+  padding: 18px 44px; text-align: center; min-width: 300px;
+  transition: all .3s;
+}
+.ticket.resolved {
+  background: linear-gradient(135deg, rgba(2,26,16,.9), rgba(4,60,38,.9));
+  border-color: rgba(16,185,129,.5);
+  box-shadow: 0 0 44px rgba(16,185,129,.2);
+  animation: pop .4s ease;
+}
+.ticket-t { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.ticket-s { font-size: 11px; color: var(--soft); font-weight: 500; }
+.ticket.resolved .ticket-t { color: #6ee7b7; }
+.ticket.resolved .ticket-s { color: rgba(110,231,183,.6); }
+
+/* ── DB CYLINDER ─────────────────────────────────────────── */
+.db-cyl { display: block; margin: 0 auto 8px; }
+
+/* ── ISSUES BOX ──────────────────────────────────────────── */
+.issues-box {
+  background: rgba(239,68,68,0.07); border: 1.5px solid rgba(239,68,68,0.22);
+  border-radius: 14px; padding: 14px 28px; text-align: center;
+  margin: 10px auto; max-width: 420px;
+}
+.issues-box-title {
+  font-size: 15px; font-weight: 800; color: #fca5a5; margin-bottom: 4px;
+}
+.issues-box-sub { font-size: 11px; color: var(--soft); font-weight: 500; }
+
+/* ── BOTTOM SPLIT ────────────────────────────────────────── */
+.bottom-split {
+  display: grid; grid-template-columns: 1fr;
+  gap: 24px; align-items: start; margin-top: 0;
+}
+.path-trad {
+  display: flex; flex-direction: column; align-items: center;
+}
+.sn-tools-card {
+  background: rgba(12,20,48,0.8); backdrop-filter: blur(12px);
+  border: 1px solid rgba(16,185,129,0.2);
+  border-radius: 12px; padding: 18px 16px; text-align: center; width: 100%;
+}
+.sn-tools-title { font-size: 13px; font-weight: 700; color: #6ee7b7; margin-bottom: 4px; }
+.sn-tools-sub   { font-size: 10px; color: var(--soft); font-weight: 500; line-height: 1.7; }
+.path-wow-wrap  { display: flex; flex-direction: column; }
+.wow-route-label {
+  font-size: 11px; font-weight: 700; color: var(--orange);
+  letter-spacing: 0.5px; margin-bottom: 10px; padding-left: 4px;
+}
+
+/* ── HR ──────────────────────────────────────────────────── */
+.hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+
+/* ── FOOTER ──────────────────────────────────────────────── */
+.footer {
+  margin-top: 52px; border-top: 1px solid var(--border); padding-top: 18px;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; color: var(--soft);
+}
+.footer-brand { font-family: 'JetBrains Mono', monospace; font-weight: 800; color: var(--indigo); font-size: 13px; }
+
+/* ── TOOLTIP ─────────────────────────────────────────────── */
+#tip {
+  position: fixed; background: rgba(8,14,32,.97); color: var(--text);
+  padding: 9px 13px; border-radius: 9px; font-size: 11.5px; line-height: 1.55;
+  max-width: 220px; z-index: 9999; pointer-events: none; opacity: 0;
+  transition: opacity .13s; box-shadow: 0 10px 32px rgba(0,0,0,.7);
+  border: 1px solid rgba(255,255,255,.08); font-weight: 500;
+}
+#tip.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="tip"></div>
+<div class="page">
+
+<!-- ═══════════════════════════════ HEADER ══════════════════════════════ -->
+<div class="header">
+  <div>
+    <div class="logo">Ping<em>Hold</em><span class="cursor"></span></div>
+    <div class="logo-sub">Enterprise Monitoring Platform</div>
+  </div>
+  <div class="header-right">
+    <div class="pill-badge">Architecture Overview</div>
+    <div class="header-sub">Confidential</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ OBSERVATORY ═════════════════════════════ -->
+<div class="obs" data-tip="The central command center — unified real-time visibility across all ETL pipelines, orchestration engines, cloud infrastructure, and AI agents.">
+  <div class="obs-live">
+    <div class="live-dot"></div>
+    <span class="live-txt">Live</span>
+  </div>
+  <div class="obs-title">🔭 &nbsp; PingHold Observatory Dashboard</div>
+  <div class="obs-sub">NOC Dashboard &nbsp;·&nbsp; Real-time visibility across your entire data ecosystem</div>
+</div>
+
+<!-- flow line -->
+<div class="fline">
+  <svg width="2" height="28" viewBox="0 0 2 28">
+    <line x1="1" y1="0" x2="1" y2="28" stroke="rgba(99,102,241,.45)" stroke-width="2"
+      stroke-dasharray="4 3" style="animation:flowmove .7s linear infinite;"/>
+  </svg>
+</div>
+
+<!-- ═══════════════════════ PLATFORM + DISTRIBUTION OUTER WRAPPER ═══════════════════════ -->
+<div style="position:relative;">
+<!-- Left connector: sits OUTSIDE the card — vertical line + horizontal stub pointing right to card edge -->
+<!-- vertical line (outside card, in page margin) -->
+<div style="position:absolute;left:-24px;top:145px;bottom:0;width:2px;z-index:10;background:repeating-linear-gradient(to bottom,rgba(99,102,241,.55) 0,rgba(99,102,241,.55) 4px,transparent 4px,transparent 7px);pointer-events:none;"></div>
+<!-- horizontal stub: from vertical line rightward to card left border -->
+<div style="position:absolute;left:-24px;top:145px;width:26px;height:2px;z-index:10;background:rgba(99,102,241,.7);pointer-events:none;"></div>
+
+<!-- ═══════════════════════════ PLATFORM ════════════════════════════════ -->
+<div class="platform">
+  <div class="plat-label">PingHold Platform</div>
+
+  <div class="layers">
+
+    <!-- Monitoring Integrations -->
+    <div class="layer l-mon"      data-tip="7 live monitoring integrations — polled every 15–45 seconds for real-time alerts.">
+      <div class="layer-hd">
+        <span class="layer-ico">📡</span>
+        <div>
+          <div class="layer-nm">Monitoring Integrations</div>
+          <div class="layer-ct">7 integrations</div>
+        </div>
+        <div class="layer-led"><div class="led"></div>OK</div>
+      </div>
+      <div class="chips">
+        <span class="chip chip-c">AWS CloudWatch</span>
+        <span class="chip chip-c">BigPanda</span>
+        <span class="chip chip-c">AppDynamics</span>
+        <span class="chip chip-c">Azure Monitor</span>
+        <span class="chip chip-c">Google Cloud Ops</span>
+        <span class="chip chip-c">Oracle Cloud Monitor</span>
+        <span class="chip chip-c">OpenTelemetry</span>
+      </div>
+    </div>
+
+    <!-- ETL Integrations -->
+    <div class="layer l-etl"      data-tip="9 ETL tool integrations — every job execution tracked from start to finish.">
+      <div class="layer-hd">
+        <span class="layer-ico">🔄</span>
+        <div>
+          <div class="layer-nm">ETL Integrations</div>
+          <div class="layer-ct">9 tools, every job tracked</div>
+        </div>
+        <div class="layer-led"><div class="led"></div>OK</div>
+      </div>
+      <div class="chips">
+        <span class="chip chip-b">Talend</span>
+        <span class="chip chip-b">Qlik</span>
+        <span class="chip chip-b">Informatica</span>
+        <span class="chip chip-b">SnapLogic</span>
+        <span class="chip chip-b">AWS Glue</span>
+        <span class="chip chip-b">Dell Boomi</span>
+        <span class="chip chip-b">SAP Integrators</span>
+        <span class="chip chip-b">Kinaxis</span>
+        <span class="chip chip-b">Ab Initio</span>
+      </div>
+    </div>
+
+    <!-- Orchestration Engines -->
+    <div class="layer l-orc"      data-tip="7 orchestration engines monitored — pipeline runs, schedules, and failures captured in real time.">
+      <div class="layer-hd">
+        <span class="layer-ico">⚙️</span>
+        <div>
+          <div class="layer-nm">Orchestration Engines</div>
+          <div class="layer-ct">7 schedulers monitored</div>
+        </div>
+        <div class="layer-led"><div class="led"></div>OK</div>
+      </div>
+      <div class="chips">
+        <span class="chip chip-g">Control-M</span>
+        <span class="chip chip-g">Apache Airflow</span>
+        <span class="chip chip-g">Camunda</span>
+        <span class="chip chip-g">Ansible</span>
+        <span class="chip chip-g">Tidal</span>
+        <span class="chip chip-g">AutoSys</span>
+        <span class="chip chip-g">Jenkins</span>
+      </div>
+    </div>
+
+    <!-- AI Agents Monitoring -->
+    <div class="layer l-ai"      data-tip="Full AI agent fleet monitoring — token usage, cost, latency, success rate across all providers.">
+      <div class="layer-hd">
+        <span class="layer-ico">🤖</span>
+        <div>
+          <div class="layer-nm">AI Agents Monitoring</div>
+          <div class="layer-ct">Token · cost · health</div>
+        </div>
+        <div class="layer-led"><div class="led"></div>OK</div>
+      </div>
+      <div class="chips">
+        <span class="chip chip-a">Anthropic Claude</span>
+        <span class="chip chip-a">OpenAI GPT</span>
+        <span class="chip chip-a">Google Gemini</span>
+        <span class="chip chip-a">AWS Bedrock</span>
+        <span class="chip chip-a">Azure OpenAI</span>
+        <span class="chip chip-a">Mistral</span>
+        <span class="chip chip-a">Self-Hosted</span>
+      </div>
+    </div>
+
+  </div><!-- /layers -->
+
+  <!-- API Module -->
+  <div class="api-mod" data-tip="The routing brain — determines which cloud environment each customer uses and routes every request, webhook, and event to the right destination automatically.">
+    <span class="api-ico">⚡</span>
+    <div class="api-body">
+      <div class="api-title">API Module &nbsp;—&nbsp; Routing Engine</div>
+      <div class="api-desc">Routes every request to the correct customer cloud environment</div>
+    </div>
+    <div class="api-tag">Routing Engine</div>
+  </div>
+
+</div><!-- /platform -->
+
+<!-- center connecting line: Platform → Distribution -->
+<div class="fline" style="margin:4px 0;">
+  <svg width="2" height="28" viewBox="0 0 2 28">
+    <line x1="1" y1="0" x2="1" y2="28" stroke="rgba(99,102,241,.5)" stroke-width="2"
+      stroke-dasharray="4 3" style="animation:flowmove .7s linear infinite;"/>
+  </svg>
+</div>
+
+<!-- Distribution card -->
+<div style="padding-left:22px;margin:0;">
+  <div class="dist-label" style="text-align:left;margin-bottom:12px;">How Customers Purchase PingHold</div>
+  <div style="background:rgba(10,18,40,.7);backdrop-filter:blur(12px);border:1px solid rgba(99,102,241,.13);border-radius:20px;padding:24px 28px;position:relative;">
+    <div style="position:absolute;top:-11px;left:22px;background:#040812;font-size:10px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:rgba(99,102,241,.6);padding:0 10px;">Distribution Channels</div>
+<div class="flow-diag">
+
+  <!-- ── Row 1: SAAS → Individual Orgs + Normal Org ── -->
+  <div class="flow-row">
+    <!-- cylinder -->
+    <div class="flow-cyl">
+      <svg width="52" height="56" viewBox="0 0 52 56" fill="none">
+        <rect x="5" y="14" width="42" height="28" fill="rgba(139,92,246,0.16)"/>
+        <ellipse cx="26" cy="42" rx="21" ry="7" fill="rgba(100,60,200,0.36)" stroke="rgba(139,92,246,0.5)" stroke-width="1.3"/>
+        <line x1="5" y1="14" x2="5" y2="42" stroke="rgba(139,92,246,0.48)" stroke-width="1.3"/>
+        <line x1="47" y1="14" x2="47" y2="42" stroke="rgba(139,92,246,0.48)" stroke-width="1.3"/>
+        <ellipse cx="26" cy="14" rx="21" ry="7" fill="rgba(139,92,246,0.5)" stroke="rgba(196,181,253,0.82)" stroke-width="1.3"/>
+      </svg>
+      <div class="flow-cyl-lbl" style="color:#c4b5fd;">SAAS</div>
+    </div>
+    <!-- arrow -->
+    <div class="flow-arr">
+      <svg width="48" height="14" viewBox="0 0 48 14">
+        <line x1="0" y1="7" x2="36" y2="7" stroke="rgba(139,92,246,.5)" stroke-width="1.5" stroke-dasharray="4 2" style="animation:flowmove .7s linear infinite;"/>
+        <polygon points="34,3 46,7 34,11" fill="rgba(139,92,246,.75)"/>
+      </svg>
+    </div>
+    <!-- no marketplace box for SAAS — goes direct -->
+    <div class="flow-saas-types">
+      <div class="flow-saas-box">
+        <div class="flow-saas-ico">👤</div>
+        <div>
+          <div class="flow-saas-nm">Individual Orgs</div>
+          <div class="flow-saas-sub">Bring their own cloud environment (AWS / Snowflake / Databricks)</div>
+        </div>
+      </div>
+      <div class="flow-saas-box">
+        <div class="flow-saas-ico">🏢</div>
+        <div>
+          <div class="flow-saas-nm">Normal Organization</div>
+          <div class="flow-saas-sub">No specific cloud environment — generic SaaS connection</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Row 2: AWS → AWS Marketplace → Pizzahut ── -->
+  <div class="flow-row">
+    <div class="flow-cyl">
+      <svg width="52" height="56" viewBox="0 0 52 56" fill="none">
+        <rect x="5" y="14" width="42" height="28" fill="rgba(249,115,22,0.14)"/>
+        <ellipse cx="26" cy="42" rx="21" ry="7" fill="rgba(180,80,0,0.35)" stroke="rgba(249,115,22,0.5)" stroke-width="1.3"/>
+        <line x1="5" y1="14" x2="5" y2="42" stroke="rgba(249,115,22,0.48)" stroke-width="1.3"/>
+        <line x1="47" y1="14" x2="47" y2="42" stroke="rgba(249,115,22,0.48)" stroke-width="1.3"/>
+        <ellipse cx="26" cy="14" rx="21" ry="7" fill="rgba(249,115,22,0.46)" stroke="rgba(253,186,116,0.82)" stroke-width="1.3"/>
+      </svg>
+      <div class="flow-cyl-lbl" style="color:#fdba74;">DynamoDB</div>
+    </div>
+    <div class="flow-arr">
+      <svg width="48" height="14" viewBox="0 0 48 14">
+        <line x1="0" y1="7" x2="36" y2="7" stroke="rgba(249,115,22,.5)" stroke-width="1.5" stroke-dasharray="4 2" style="animation:flowmove .7s linear infinite;"/>
+        <polygon points="34,3 46,7 34,11" fill="rgba(249,115,22,.75)"/>
+      </svg>
+    </div>
+    <div class="flow-mkt" style="border-color:rgba(249,115,22,.38);background:rgba(249,115,22,.06);" data-tip="AWS-native customers purchase PingHold through AWS Marketplace. Billing is consolidated into their existing AWS account.">
+      <div class="flow-mkt-eye" style="color:#fdba74;">Marketplace</div>
+      <div class="flow-mkt-nm" style="color:#fdba74;">AWS Marketplace</div>
+    </div>
+    <div class="flow-arr">
+      <svg width="48" height="14" viewBox="0 0 48 14">
+        <line x1="48" y1="7" x2="14" y2="7" stroke="rgba(249,115,22,.5)" stroke-width="1.5" stroke-dasharray="4 2" style="animation:flowmove .7s linear infinite;"/>
+        <polygon points="14,3 2,7 14,11" fill="rgba(249,115,22,.75)"/>
+      </svg>
+    </div>
+    <div class="flow-org">
+      <div class="flow-org-box" style="border-color:rgba(249,115,22,.3);">
+        <div class="flow-org-nm">Customer Activation</div>
+        <div class="flow-org-sub">Customer buys PingHold according to their AWS cloud environment</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Row 3: Snowflake → Snowflake Marketplace → Vituity ── -->
+  <div class="flow-row">
+    <div class="flow-cyl">
+      <svg width="52" height="56" viewBox="0 0 52 56" fill="none">
+        <rect x="5" y="14" width="42" height="28" fill="rgba(6,182,212,0.11)"/>
+        <ellipse cx="26" cy="42" rx="21" ry="7" fill="rgba(0,100,140,0.35)" stroke="rgba(6,182,212,0.5)" stroke-width="1.3"/>
+        <line x1="5" y1="14" x2="5" y2="42" stroke="rgba(6,182,212,0.48)" stroke-width="1.3"/>
+        <line x1="47" y1="14" x2="47" y2="42" stroke="rgba(6,182,212,0.48)" stroke-width="1.3"/>
+        <ellipse cx="26" cy="14" rx="21" ry="7" fill="rgba(6,182,212,0.42)" stroke="rgba(103,232,249,0.82)" stroke-width="1.3"/>
+      </svg>
+      <div class="flow-cyl-lbl" style="color:#67e8f9;">Snowflake</div>
+    </div>
+    <div class="flow-arr">
+      <svg width="48" height="14" viewBox="0 0 48 14">
+        <line x1="0" y1="7" x2="36" y2="7" stroke="rgba(6,182,212,.5)" stroke-width="1.5" stroke-dasharray="4 2" style="animation:flowmove .7s linear infinite;"/>
+        <polygon points="34,3 46,7 34,11" fill="rgba(6,182,212,.75)"/>
+      </svg>
+    </div>
+    <div class="flow-mkt" style="border-color:rgba(6,182,212,.38);background:rgba(6,182,212,.06);" data-tip="Snowflake-native customers purchase PingHold through Snowflake Marketplace. Monitoring activates natively inside their Snowflake workspace.">
+      <div class="flow-mkt-eye" style="color:#67e8f9;">Marketplace</div>
+      <div class="flow-mkt-nm" style="color:#67e8f9;">Snowflake Marketplace</div>
+    </div>
+    <div class="flow-arr">
+      <svg width="48" height="14" viewBox="0 0 48 14">
+        <line x1="48" y1="7" x2="14" y2="7" stroke="rgba(6,182,212,.5)" stroke-width="1.5" stroke-dasharray="4 2" style="animation:flowmove .7s linear infinite;"/>
+        <polygon points="14,3 2,7 14,11" fill="rgba(6,182,212,.75)"/>
+      </svg>
+    </div>
+    <div class="flow-org">
+      <div class="flow-org-box" style="border-color:rgba(6,182,212,.3);">
+        <div class="flow-org-nm">Customer Activation</div>
+        <div class="flow-org-sub">Customer buys PingHold according to their Snowflake cloud environment</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Row 4: Databricks → Databricks Marketplace → BCBS ── -->
+  <div class="flow-row">
+    <div class="flow-cyl">
+      <svg width="52" height="56" viewBox="0 0 52 56" fill="none">
+        <rect x="5" y="14" width="42" height="28" fill="rgba(239,68,68,0.11)"/>
+        <ellipse cx="26" cy="42" rx="21" ry="7" fill="rgba(140,0,0,0.35)" stroke="rgba(239,68,68,0.5)" stroke-width="1.3"/>
+        <line x1="5" y1="14" x2="5" y2="42" stroke="rgba(239,68,68,0.48)" stroke-width="1.3"/>
+        <line x1="47" y1="14" x2="47" y2="42" stroke="rgba(239,68,68,0.48)" stroke-width="1.3"/>
+        <ellipse cx="26" cy="14" rx="21" ry="7" fill="rgba(239,68,68,0.42)" stroke="rgba(252,165,165,0.82)" stroke-width="1.3"/>
+      </svg>
+      <div class="flow-cyl-lbl" style="color:#fca5a5;">Databricks</div>
+    </div>
+    <div class="flow-arr">
+      <svg width="48" height="14" viewBox="0 0 48 14">
+        <line x1="0" y1="7" x2="36" y2="7" stroke="rgba(239,68,68,.5)" stroke-width="1.5" stroke-dasharray="4 2" style="animation:flowmove .7s linear infinite;"/>
+        <polygon points="34,3 46,7 34,11" fill="rgba(239,68,68,.75)"/>
+      </svg>
+    </div>
+    <div class="flow-mkt" style="border-color:rgba(239,68,68,.38);background:rgba(239,68,68,.06);" data-tip="Databricks-native enterprises purchase PingHold through Databricks Marketplace. Monitoring activates natively inside their Databricks workspace.">
+      <div class="flow-mkt-eye" style="color:#fca5a5;">Marketplace</div>
+      <div class="flow-mkt-nm" style="color:#fca5a5;">Databricks Marketplace</div>
+    </div>
+    <div class="flow-arr">
+      <svg width="48" height="14" viewBox="0 0 48 14">
+        <line x1="48" y1="7" x2="14" y2="7" stroke="rgba(239,68,68,.5)" stroke-width="1.5" stroke-dasharray="4 2" style="animation:flowmove .7s linear infinite;"/>
+        <polygon points="14,3 2,7 14,11" fill="rgba(239,68,68,.75)"/>
+      </svg>
+    </div>
+    <div class="flow-org">
+      <div class="flow-org-box" style="border-color:rgba(239,68,68,.3);">
+        <div class="flow-org-nm">Customer Activation</div>
+        <div class="flow-org-sub">Customer buys PingHold according to their Databricks cloud environment</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /flow-diag -->
+  </div><!-- /distribution card -->
+</div><!-- /distribution card -->
+</div><!-- /platform+distribution outer wrapper -->
+
+<!-- L-turn: left dashed line continues down then turns right to center where Issues box is -->
+<!-- L-turn: left vertical → horizontal to center → down arrow to Issues box -->
+<div style="position:relative;height:44px;">
+  <!-- vertical line (aligned with connector at left:-24px) -->
+  <div style="position:absolute;left:-24px;top:0;width:2px;height:30px;background:repeating-linear-gradient(to bottom,rgba(99,102,241,.55) 0,rgba(99,102,241,.55) 4px,transparent 4px,transparent 7px);"></div>
+  <!-- horizontal line from left:-24px to center -->
+  <div style="position:absolute;left:-24px;top:28px;width:calc(50% + 24px);height:2px;background:repeating-linear-gradient(to right,rgba(99,102,241,.55) 0,rgba(99,102,241,.55) 4px,transparent 4px,transparent 7px);"></div>
+  <!-- down-pointing arrow at center -->
+  <svg width="14" height="14" viewBox="0 0 14 14" style="position:absolute;left:50%;top:28px;transform:translateX(-7px);">
+    <polygon points="0,0 14,0 7,14" fill="rgba(99,102,241,.85)"/>
+  </svg>
+</div>
+
+<!-- Issues or Support Tickets box -->
+<div style="display:flex;justify-content:center;">
+  <div class="issues-box" data-tip="PingHold raises Issues or Support Tickets when anomalies are detected — routed to the autonomous WOW Stacked 5-lattice resolution pipeline.">
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4px;">
+      <div class="bridge-pulse"></div>
+      <div class="issues-box-title">Issues or Support Tickets</div>
+    </div>
+    <div class="issues-box-sub">Raised by PingHold Platform · routed to autonomous WOW Stacked resolution</div>
+  </div>
+</div>
+
+<!-- straight path down from Issues box to WOW Stacked -->
+<div class="fline" style="margin:4px 0 0;">
+  <svg width="2" height="40" viewBox="0 0 2 40">
+    <line x1="1" y1="0" x2="1" y2="40" stroke="rgba(249,115,22,.55)" stroke-width="2" stroke-dasharray="4 3" style="animation:flowmove .6s linear infinite;"/>
+  </svg>
+</div>
+
+<!-- WOW Stacked autonomous pipeline -->
+<div class="bottom-split">
+
+  <!-- WOW Stacked autonomous pipeline -->
+  <div class="path-wow-wrap">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;gap:12px;">
+      <div>
+        <div class="wow-route-label">WOW Stacked — Autonomous Issue Resolution</div>
+        <div style="font-size:10px;color:var(--soft);margin-top:2px;font-weight:500;">5-lattice framework · detects, diagnoses, fixes, tests, and closes the ticket automatically via ServiceNow · JIRA</div>
+      </div>
+      <button class="sim-btn" id="simBtn" onclick="sim()" style="flex-shrink:0;">⚡ &nbsp;Click here to Dispatch Agents</button>
+    </div>
+
+    <!-- agent dispatch log (shown during simulation) -->
+    <div class="dispatch-log" id="dispatchLog">
+      <div class="dispatch-log-hd">⚡ Agent Dispatch Log</div>
+      <div id="logLines"></div>
+    </div>
+
+    <div class="wow-card">
+      <div class="wow-bar-t"><div class="wow-bar-f" id="wbar"></div></div>
+      <div class="wow-steps">
+
+        <div class="ws ws1" id="ws1" data-tip="Anomaly Scout Agent reads the alert, understands context, and brainstorms root causes using historical patterns and system knowledge.">
+          <div class="ws-n">1</div><div class="ws-nm">Ideation Lattice</div><div class="ws-d">Understand the issue</div>
+          <div class="ws-agent" id="wa1">
+            <div class="ws-agent-name" style="color:#fbbf24;">Anomaly Scout</div>
+            <div class="ws-agent-status" id="ws1s">Scanning alert…</div>
+          </div>
+        </div>
+        <div class="wa">→</div>
+
+        <div class="ws ws2" id="ws2" data-tip="Blueprint Analyst Agent reads the system spec to pinpoint the exact root cause — no guessing, no escalation.">
+          <div class="ws-n">2</div><div class="ws-nm">Spec Lattice</div><div class="ws-d">Blueprint &amp; root cause</div>
+          <div class="ws-agent" id="wa2">
+            <div class="ws-agent-name" style="color:#60a5fa;">Blueprint Analyst</div>
+            <div class="ws-agent-status" id="ws2s">Tracing fault…</div>
+          </div>
+        </div>
+        <div class="wa">→</div>
+
+        <div class="ws ws3" id="ws3" data-tip="AutoFix Bot identifies the broken node and applies an automatic patch — no human intervention required.">
+          <div class="ws-n">3</div><div class="ws-nm">Node Lattice</div><div class="ws-d">Diagnose &amp; auto-fix</div>
+          <div class="ws-agent" id="wa3">
+            <div class="ws-agent-name" style="color:#34d399;">AutoFix Bot</div>
+            <div class="ws-agent-status" id="ws3s">Applying patch…</div>
+          </div>
+        </div>
+        <div class="wa">→</div>
+
+        <div class="ws ws4" id="ws4" data-tip="QA Guardian runs automated test suites to validate the fix before deploying to production. Zero regression risk.">
+          <div class="ws-n">4</div><div class="ws-nm">Test Lattice</div><div class="ws-d">Validate the fix</div>
+          <div class="ws-agent" id="wa4">
+            <div class="ws-agent-name" style="color:#a78bfa;">QA Guardian</div>
+            <div class="ws-agent-status" id="ws4s">Running tests…</div>
+          </div>
+        </div>
+        <div class="wa">→</div>
+
+        <div class="ws ws5" id="ws5" data-tip="Closure Agent deploys the fix and automatically closes the ticket in ServiceNow or JIRA. Full audit trail, zero manual work.">
+          <div class="ws-n">5</div><div class="ws-nm">Support Lattice</div><div class="ws-d">Deploy &amp; close ticket</div>
+          <div class="ws-agent" id="wa5">
+            <div class="ws-agent-name" style="color:#fb923c;">Closure Agent</div>
+            <div class="ws-agent-status" id="ws5s">Closing ticket…</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- flow line down to ticket -->
+    <div class="fline" style="margin:4px 0">
+      <svg width="2" height="22" viewBox="0 0 2 22">
+        <line x1="1" y1="0" x2="1" y2="22" stroke="rgba(249,115,22,.4)" stroke-width="2"
+          stroke-dasharray="4 3" style="animation:flowmove .65s linear infinite;"/>
+      </svg>
+    </div>
+
+    <div class="ticket-row">
+      <div class="ticket" id="ticket" data-tip="ServiceNow and JIRA tickets are automatically closed once WOW Stacked resolves the issue — zero manual work, full audit trail.">
+        <div class="ticket-t" id="tTitle">✅ &nbsp; Ticket Closed in ServiceNow &nbsp;·&nbsp; JIRA</div>
+        <div class="ticket-s" id="tSub">Automatically resolved &amp; closed — zero manual work</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════ FOOTER ══════════════════════════════════ -->
+<div class="footer">
+  <span class="footer-brand">PingHold</span>
+  <div style="display:flex;gap:20px;">
+    <span>Confidential</span>
+  </div>
+</div>
+
+</div><!-- /page -->
+<script>
+/* tooltip */
+const tip = document.getElementById('tip');
+document.querySelectorAll('[data-tip]').forEach(el => {
+  el.addEventListener('mousemove', e => {
+    tip.textContent = el.dataset.tip; tip.classList.add('show');
+    let x = e.clientX + 14, y = e.clientY - 8;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+    requestAnimationFrame(() => {
+      const r = tip.getBoundingClientRect();
+      if (r.right  > window.innerWidth  - 10) tip.style.left = (e.clientX - r.width - 14) + 'px';
+      if (r.bottom > window.innerHeight - 10) tip.style.top  = (e.clientY - r.height - 10) + 'px';
+    });
+  });
+  el.addEventListener('mouseleave', () => tip.classList.remove('show'));
+});
+
+/* marketplace highlight */
+function toggleMc(el) {
+  const wasActive = el.classList.contains('active');
+  document.querySelectorAll('.mc').forEach(m => { m.classList.remove('active'); m.style.transform = ''; });
+  if (!wasActive) {
+    el.classList.add('active');
+    el.style.transform = 'translateY(-8px) scale(1.02)';
+  }
+}
+
+/* wow simulation — multi-agent dispatch */
+let running = false;
+
+const AGENTS = [
+  { id:'wa1', step:'ws1', statusEl:'ws1s', name:'Anomaly Scout',    log:'Anomaly Scout dispatched   → Scanning alert context',       done:'Alert analyzed'     },
+  { id:'wa2', step:'ws2', statusEl:'ws2s', name:'Blueprint Analyst', log:'Blueprint Analyst dispatched → Tracing root cause in spec', done:'Root cause found'   },
+  { id:'wa3', step:'ws3', statusEl:'ws3s', name:'AutoFix Bot',       log:'AutoFix Bot dispatched      → Applying targeted patch',     done:'Patch applied'      },
+  { id:'wa4', step:'ws4', statusEl:'ws4s', name:'QA Guardian',       log:'QA Guardian dispatched      → Running test suite',          done:'All tests passed'   },
+  { id:'wa5', step:'ws5', statusEl:'ws5s', name:'Closure Agent',     log:'Closure Agent dispatched    → Closing ticket',              done:'Ticket closed ✓'    },
+];
+
+function addLogLine(html) {
+  const el = document.getElementById('logLines');
+  const line = document.createElement('div');
+  line.className = 'log-line'; line.innerHTML = html;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+function sim() {
+  if (running) return; running = true;
+  const btn  = document.getElementById('simBtn');
+  const bar  = document.getElementById('wbar');
+  const t    = document.getElementById('ticket');
+  const tT   = document.getElementById('tTitle');
+  const tS   = document.getElementById('tSub');
+  const log  = document.getElementById('dispatchLog');
+  const logL = document.getElementById('logLines');
+
+  /* reset */
+  for (let i=1;i<=5;i++) {
+    document.getElementById('ws'+i).classList.remove('lit');
+    document.getElementById('wa'+i).classList.remove('show');
+  }
+  t.classList.remove('resolved');
+  tT.textContent = '⏳\u00a0 Awaiting resolution…';
+  tS.textContent = 'AI agents being dispatched…';
+  bar.style.width = '0%';
+  logL.innerHTML = '';
+  log.classList.add('show');
+  btn.classList.add('running'); btn.textContent = '⚡\u00a0 Dispatching Agents…';
+
+  const pct = ['20%','40%','60%','80%','100%'];
+  const STEP = 900;
+
+  /* t=0: announce issue */
+  addLogLine('<span style="color:rgba(239,68,68,.85);">⚠ ISSUE DETECTED</span> — ETL pipeline failure · Node Lattice anomaly raised');
+
+  AGENTS.forEach((ag, idx) => {
+    const delay = (idx + 1) * STEP;
+
+    /* dispatch agent */
+    setTimeout(() => {
+      document.getElementById(ag.step).classList.add('lit');
+      document.getElementById(ag.id).classList.add('show');
+      bar.style.width = pct[idx];
+      addLogLine('<span>→ ' + ag.log.replace('→', '</span>→'));
+    }, delay);
+
+    /* agent done */
+    setTimeout(() => {
+      document.getElementById(ag.statusEl).textContent = ag.done;
+    }, delay + 500);
+  });
+
+  /* all resolved */
+  const total = AGENTS.length * STEP + 600;
+  setTimeout(() => {
+    t.classList.add('resolved');
+    tT.textContent = '✅\u00a0 5 AI Agents Deployed — Issue Resolved';
+    tS.textContent = 'Ticket auto-closed in ServiceNow & JIRA · ' + (AGENTS.length * STEP / 1000).toFixed(1) + 's resolution time';
+    addLogLine('<span style="color:rgba(16,185,129,.9);">✓ RESOLVED</span> — Ticket closed · Full audit trail written');
+  }, total);
+
+  /* auto-reset */
+  setTimeout(() => {
+    btn.classList.remove('running'); btn.textContent = '⚡\u00a0 Dispatch Agents';
+    for (let i=1;i<=5;i++) {
+      document.getElementById('ws'+i).classList.remove('lit');
+      document.getElementById('wa'+i).classList.remove('show');
+    }
+    t.classList.remove('resolved');
+    tT.textContent = '✅\u00a0 Ticket Closed in ServiceNow\u00a0·\u00a0 JIRA';
+    tS.textContent = 'Automatically resolved & closed — zero manual work';
+    bar.style.width = '0%';
+    log.classList.remove('show');
+    running = false;
+  }, total + 4500);
+}
+</script>
+</body>
+</html>
